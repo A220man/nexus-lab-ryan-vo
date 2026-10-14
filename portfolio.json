@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "nexus-lab-ryan-vo",
+  "owner": "A220man",
+  "email": "ryandtvo@gmail.com",
+  "domain": "AI/ML developer tools",
+  "summary": "Work in progress: nexus-lab-ryan-vo",
+  "workflows": [
+    "Capture and compress agent session observations with AI summarization",
+    "Search and inject relevant context from past sessions into new agent runs",
+    "Manage persistent memory across multiple AI coding assistants with unified storage"
+  ],
+  "auth": "oidc-keycloak-saml-broker",
+  "llm_providers": [
+    "openai-compatible",
+    "anthropic",
+    "gemini",
+    "ollama"
+  ],
+  "status": "work-in-progress"
+}

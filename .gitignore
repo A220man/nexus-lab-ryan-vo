@@ -1,0 +1,69 @@
+# Dependencies
+.venv/
+venv/
+env/
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+frontend/dist/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+data/
+backend/data/
+
+# Logs
+*.log
+logs/
+backend/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+frontend/coverage/
+
+# Type checking
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Agent metadata (local only)
+.antigravitycli/
+.omp/
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
