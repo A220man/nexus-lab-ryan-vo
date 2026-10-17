@@ -12,9 +12,9 @@ os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "test-secret")
 os.environ.setdefault("DEMO_MODE", "true")
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 async def init_test_database():
-    """Initialize the test database once for the session."""
+    """Initialize and dispose the database within each test event loop."""
     from app.core.database import engine
     from app.models.base import Base
 
@@ -30,7 +30,7 @@ async def init_test_database():
 
 
 @pytest.fixture(autouse=True)
-async def clean_database():
+async def clean_database(init_test_database):
     """Clean database tables before each test."""
     from app.core.database import engine
     from app.models.session import Observation, Session, SessionSummary
