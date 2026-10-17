@@ -1,5 +1,19 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import {
+  SessionItem,
+  ObservationItem,
+  CreateSessionPayload,
+  CreateObservationPayload,
+  fetchSessions,
+  createSession,
+  deleteSession,
+  fetchObservations,
+  createObservation,
+  searchObservations,
+} from './api'
+import { SessionList } from './components/SessionList'
+import { ObservationView } from './components/ObservationView'
 
 interface HealthResponse {
   status: string
@@ -10,11 +24,19 @@ interface HealthResponse {
   keycloak?: string | null
 }
 
-function App() {
+export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [healthLoading, setHealthLoading] = useState(true)
+  const [healthError, setHealthError] = useState<string | null>(null)
 
+  const [sessions, setSessions] = useState<SessionItem[]>([])
+  const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+
+  const [observations, setObservations] = useState<ObservationItem[]>([])
+  const [observationsLoading, setObservationsLoading] = useState(false)
+
+  // Fetch health
   useEffect(() => {
     const fetchHealth = async () => {
       try {
@@ -25,9 +47,9 @@ function App() {
         const data = await response.json()
         setHealth(data)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error')
+        setHealthError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
-        setLoading(false)
+        setHealthLoading(false)
       }
     }
 
@@ -35,6 +57,94 @@ function App() {
     const interval = setInterval(fetchHealth, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Load sessions on mount
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  const loadSessions = async () => {
+    setSessionsLoading(true)
+    try {
+      const data = await fetchSessions()
+      setSessions(data)
+      if (data.length > 0 && !selectedSession) {
+        setSelectedSession(data[0])
+      }
+    } catch (err) {
+      console.error('Failed to load sessions', err)
+    } finally {
+      setSessionsLoading(false)
+    }
+  }
+
+  // Load observations when selected session changes
+  useEffect(() => {
+    if (selectedSession) {
+      loadObservations(selectedSession.id)
+    } else {
+      setObservations([])
+    }
+  }, [selectedSession?.id])
+
+  const loadObservations = async (sessionId: string) => {
+    setObservationsLoading(true)
+    try {
+      const data = await fetchObservations(sessionId)
+      setObservations(data)
+    } catch (err) {
+      console.error('Failed to load observations', err)
+    } finally {
+      setObservationsLoading(false)
+    }
+  }
+
+  const handleCreateSession = async (payload: CreateSessionPayload) => {
+    const created = await createSession(payload)
+    setSessions((prev) => [created, ...prev])
+    setSelectedSession(created)
+  }
+
+  const handleDeleteSession = async (id: string) => {
+    await deleteSession(id)
+    setSessions((prev) => prev.filter((s) => s.id !== id))
+    if (selectedSession?.id === id) {
+      setSelectedSession(null)
+    }
+  }
+
+  const handleCreateObservation = async (payload: CreateObservationPayload) => {
+    if (!selectedSession) return
+    const created = await createObservation(selectedSession.id, payload)
+    // Update or prepend depending on occurrence count
+    setObservations((prev) => {
+      const existingIdx = prev.findIndex((o) => o.content_hash === created.content_hash)
+      if (existingIdx >= 0) {
+        const updated = [...prev]
+        updated[existingIdx] = created
+        return updated
+      }
+      return [created, ...prev]
+    })
+  }
+
+  const handleSearchObservations = async (query: string) => {
+    if (!query) {
+      if (selectedSession) {
+        loadObservations(selectedSession.id)
+      }
+      return
+    }
+    setObservationsLoading(true)
+    try {
+      const results = await searchObservations(query, selectedSession?.project)
+      setObservations(results)
+    } catch (err) {
+      console.error('Search failed', err)
+    } finally {
+      setObservationsLoading(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -58,14 +168,14 @@ function App() {
       </header>
 
       <main className="app-main">
-        <section className="health-card">
+        <section className="card health-card">
           <h2>System Health</h2>
 
-          {loading && <p className="loading">Checking services...</p>}
+          {healthLoading && <p className="loading">Checking services...</p>}
 
-          {error && (
+          {healthError && (
             <div className="error">
-              <strong>Failed to load health:</strong> {error}
+              <strong>Failed to load health:</strong> {healthError}
             </div>
           )}
 
@@ -123,19 +233,57 @@ function App() {
           )}
         </section>
 
-        <section className="info-card">
+        <div className="workspace-layout">
+          <SessionList
+            sessions={sessions}
+            selectedSessionId={selectedSession?.id ?? null}
+            onSelectSession={setSelectedSession}
+            onCreateSession={handleCreateSession}
+            onDeleteSession={handleDeleteSession}
+            loading={sessionsLoading}
+          />
+
+          {selectedSession ? (
+            <ObservationView
+              session={selectedSession}
+              observations={observations}
+              onCreateObservation={handleCreateObservation}
+              onSearch={handleSearchObservations}
+              loading={observationsLoading}
+            />
+          ) : (
+            <section className="card empty-workspace">
+              <h2>Agent Observation Workspace</h2>
+              <p className="empty-state">Select or create a session to view and record observations.</p>
+            </section>
+          )}
+        </div>
+
+        <section className="card info-card">
           <h2>Quick Links</h2>
           <ul>
-            <li><a href="/api/docs" target="_blank" rel="noopener noreferrer">API Documentation</a></li>
-            <li><a href="https://github.com/A220man/nexus-lab-ryan-vo" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
-            <li><a href="https://github.com/A220man/nexus-lab-ryan-vo/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+            <li>
+              <a href="/api/docs" target="_blank" rel="noopener noreferrer">
+                API Documentation
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/A220man/nexus-lab-ryan-vo" target="_blank" rel="noopener noreferrer">
+                GitHub Repository
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/A220man/nexus-lab-ryan-vo/issues" target="_blank" rel="noopener noreferrer">
+                Issue Tracker
+              </a>
+            </li>
           </ul>
         </section>
       </main>
 
       <footer className="app-footer">
         <p>Ryan Vo | AI & Machine Learning</p>
-        <p>MIT License — Copyright (c) 2026 Ryan Vo <ryandtvo@gmail.com></p>
+        <p>MIT License &mdash; Copyright (c) 2026 Ryan Vo &lt;ryandtvo@gmail.com&gt;</p>
       </footer>
     </div>
   )

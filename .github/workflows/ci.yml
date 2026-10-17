@@ -7,20 +7,20 @@ on:
     branches: [main]
 
 env:
-  DATABASE_URL: sqlite:///./test.db
-  SECRET_KEY: test-secret-key-for-ci-testing-only-32chars
-  KEYCLOAK_URL: http://localhost:8080
-  KEYCLOAK_REALM: nexus-lab
-  KEYCLOAK_CLIENT_ID: nexus-lab
-  KEYCLOAK_CLIENT_SECRET: change-me-in-production
+  DATABASE_URL: "sqlite:///./test.db"
+  SECRET_KEY: "test-secret-key-for-ci-testing-only-32chars"
+  KEYCLOAK_URL: "http://localhost:8080"
+  KEYCLOAK_REALM: "nexus-lab"
+  KEYCLOAK_CLIENT_ID: "nexus-lab"
+  KEYCLOAK_CLIENT_SECRET: "change-me-in-production"
   LLM_API_KEY: ""
-  LLM_PROVIDER: openai-compatible
-  LLM_MODEL: gpt-4o-mini
-  LLM_BASE_URL: https://api.openai.com/v1
-  CHROMA_URL: http://localhost:8001
+  LLM_PROVIDER: "openai-compatible"
+  LLM_MODEL: "gpt-4o-mini"
+  LLM_BASE_URL: "https://api.openai.com/v1"
+  CHROMA_URL: "http://localhost:8001"
   DEMO_MODE: "true"
-  FRONTEND_URL: http://localhost:5173
-  LOG_LEVEL: DEBUG
+  FRONTEND_URL: "http://localhost:5173"
+  LOG_LEVEL: "DEBUG"
 
 jobs:
   backend-test:
@@ -63,7 +63,7 @@ jobs:
           .venv/bin/pytest backend/tests -v --tb=short
         env:
           PYTHONPATH: backend
-          DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_lab
+          DATABASE_URL: "postgresql://nexus:nexus@localhost:5432/nexus_lab"
 
   frontend-test:
     name: Frontend Tests

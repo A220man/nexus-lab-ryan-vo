@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
-from sqlalchemy import event, text
-from app.core.config import get_settings
+
 import structlog
+from app.core.config import get_settings
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, StaticPool
 
 logger = structlog.get_logger()
 
 settings = get_settings()
+
 
 # Convert SQLite URL to async if needed
 def get_async_database_url(url: str) -> str:
@@ -17,17 +19,22 @@ def get_async_database_url(url: str) -> str:
         return url.replace("postgresql://", "postgresql+asyncpg://")
     return url
 
+
 async_database_url = get_async_database_url(settings.database_url)
+
+is_memory_sqlite = ":memory:" in async_database_url
+poolclass = StaticPool if is_memory_sqlite else (NullPool if "sqlite" in async_database_url else None)
 
 engine = create_async_engine(
     async_database_url,
     echo=settings.log_level == "DEBUG",
-    poolclass=NullPool if "sqlite" in async_database_url else None,
-    pool_pre_ping=True,
+    poolclass=poolclass,
+    pool_pre_ping=True if not is_memory_sqlite else False,
 )
 
 # SQLite-specific: enable foreign keys and WAL mode
 if "sqlite" in async_database_url:
+
     @event.listens_for(engine.sync_engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
@@ -37,6 +44,7 @@ if "sqlite" in async_database_url:
         cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
+
 async_session_factory = async_sessionmaker(
     engine,
     class_=AsyncSession,
@@ -44,8 +52,6 @@ async_session_factory = async_sessionmaker(
     autoflush=False,
 )
 
-
-@asynccontextmanager
 async def get_session() -> AsyncSession:
     async with async_session_factory() as session:
         try:
@@ -60,7 +66,10 @@ async def get_session() -> AsyncSession:
 
 async def init_db() -> None:
     """Initialize database - run migrations or create tables."""
+    # Import models so they register with Base.metadata
+    from app.models import session as _models  # noqa: F401
     from app.models.base import Base
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("database_initialized", url=settings.database_url)

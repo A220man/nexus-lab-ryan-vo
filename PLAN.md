@@ -10,7 +10,7 @@ core-skeleton
 
 ### core-skeleton — Core FastAPI/React Skeleton with Health Check
 
-Status: in_progress
+Status: done
 
 Acceptance:
 - FastAPI backend starts and serves /api/health
@@ -19,19 +19,23 @@ Acceptance:
 - Backend tests pass (pytest)
 - Frontend typecheck and build pass
 
-Implementation: `backend/app/main.py`, `backend/requirements.txt`, `backend/Dockerfile`, `frontend/package.json`, `frontend/src/main.tsx`, `frontend/src/App.tsx`, `compose.yaml`, `.github/workflows/ci.yml`
+Implementation: `backend/app/main.py`, `backend/requirements.txt`, `backend/Dockerfile`, `frontend/package.json`, `frontend/src/main.tsx`, `frontend/src/App.tsx`, `compose.yaml`, `.github/workflows/ci.yml`, `backend/app/core/config.py`, `backend/app/core/database.py`, `backend/app/core/security.py`, `backend/app/models/base.py`, `backend/app/api/health.py`, `backend/tests/conftest.py`, `frontend/src/test/setup.ts`, `frontend/index.html`, `frontend/vite.config.ts`, `frontend/nginx.conf`
 
 Tests: `backend/tests/test_health.py`, `frontend/src/App.test.tsx`
 
 ### sqlite-storage — SQLite Persistent Storage with Session/Observation Models
 
-Status: planned
+Status: in_progress
 
 Acceptance:
 - SQLAlchemy models for sessions, observations, summaries
-- Migrations run on startup via introspection
+- Database initialized on startup via create_all
 - CRUD endpoints for sessions and observations
-- Tests cover persistence and querying
+- Tests cover persistence, querying, cascade deletes, and deduplication
+
+Implementation: `backend/app/models/session.py`, `backend/app/models/__init__.py`, `backend/app/services/session_service.py`, `backend/app/services/observation_service.py`, `backend/app/services/__init__.py`, `backend/app/api/sessions.py`, `backend/app/api/observations.py`, `backend/app/api/__init__.py`, `backend/app/core/database.py`
+
+Tests: `backend/tests/test_sessions.py`, `backend/tests/conftest.py`
 
 ### auth-oidc — OIDC Authentication with Keycloak
 

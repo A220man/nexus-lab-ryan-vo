@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-from pydantic import BaseModel
-from typing import Optional
-from app.core.config import get_settings
-from app.core.database import get_session, engine
+import httpx
 import structlog
+from app.core.config import get_settings
+from app.core.database import get_session
+from fastapi import APIRouter, Depends, Response
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 router = APIRouter(tags=["health"])
@@ -17,8 +17,8 @@ class HealthResponse(BaseModel):
     version: str
     app_name: str
     database: str
-    chroma: Optional[str] = None
-    keycloak: Optional[str] = None
+    chroma: str | None = None
+    keycloak: str | None = None
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -38,13 +38,9 @@ async def health_check(db: AsyncSession = Depends(get_session)):
     # Check ChromaDB (optional)
     if settings.chroma_url:
         try:
-            import httpx
             async with httpx.AsyncClient(timeout=2.0) as client:
                 resp = await client.get(f"{settings.chroma_url.rstrip('/')}/api/v1/heartbeat")
-                if resp.status_code == 200:
-                    chroma_status = "ok"
-                else:
-                    chroma_status = "degraded"
+                chroma_status = "ok" if resp.status_code == 200 else "degraded"
         except Exception as e:
             logger.warning("health_check_chroma_failed", error=str(e))
             chroma_status = "unavailable"
@@ -52,13 +48,9 @@ async def health_check(db: AsyncSession = Depends(get_session)):
     # Check Keycloak (optional)
     if settings.keycloak_url:
         try:
-            import httpx
             async with httpx.AsyncClient(timeout=2.0) as client:
                 resp = await client.get(f"{settings.keycloak_url.rstrip('/')}/health/ready")
-                if resp.status_code == 200:
-                    keycloak_status = "ok"
-                else:
-                    keycloak_status = "degraded"
+                keycloak_status = "ok" if resp.status_code == 200 else "degraded"
         except Exception as e:
             logger.warning("health_check_keycloak_failed", error=str(e))
             keycloak_status = "unavailable"
@@ -76,11 +68,13 @@ async def health_check(db: AsyncSession = Depends(get_session)):
 
 
 @router.get("/readiness")
-async def readiness_check(db: AsyncSession = Depends(get_session)):
+async def readiness_check(db: AsyncSession = Depends(get_session), response: Response = None):
     """Readiness check for Kubernetes/load balancer."""
     try:
         await db.execute(text("SELECT 1"))
         return {"status": "ready"}
     except Exception as e:
         logger.error("readiness_check_failed", error=str(e))
-        return {"status": "not_ready", "error": str(e)}, 503
+        if response:
+            response.status_code = 503
+        return {"status": "not_ready", "error": str(e)}

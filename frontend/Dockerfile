@@ -29,6 +29,9 @@ RUN addgroup -g 1001 -S appuser && \
     adduser -S -D -H -u 1001 -h /usr/share/nginx/html -s /sbin/nologin -G appuser appuser && \
     chown -R appuser:appuser /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
 
+# Keep nginx's PID writable while serving as the unprivileged app user.
+RUN sed -i 's@/var/run/nginx.pid@/tmp/nginx.pid@g; s@/run/nginx.pid@/tmp/nginx.pid@g' /etc/nginx/nginx.conf
+
 USER appuser
 
 EXPOSE 5173

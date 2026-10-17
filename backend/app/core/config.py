@@ -1,7 +1,7 @@
 from functools import lru_cache
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from pydantic import Field
-from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     keycloak_client_secret: str = ""
 
     # LLM Provider
-    llm_api_key: Optional[str] = None
+    llm_api_key: str | None = None
     llm_provider: str = "openai-compatible"
     llm_model: str = "gpt-4o-mini"
     llm_base_url: str = "https://api.openai.com/v1"

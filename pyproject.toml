@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-lab-ryan-vo"
-version = "1.0.0"
+version = "1.1.0"
 description = "Persistent Context Across Sessions for Every Agent — AI/ML developer tool for cross-session memory"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -25,6 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "asyncpg>=0.30.0,<0.31",
     "fastapi>=0.115.0,<0.116",
     "uvicorn[standard]>=0.32.0,<0.33",
     "sqlalchemy>=2.0.36,<2.1",
