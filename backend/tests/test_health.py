@@ -1,6 +1,8 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+import pytest_asyncio
+from app.core.config import get_settings
 from app.main import create_app
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture
@@ -8,7 +10,7 @@ def app():
     return create_app()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -21,7 +23,8 @@ async def test_health_endpoint(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] in ("ok", "degraded")
-    assert data["version"] == "1.0.0"
+    settings = get_settings()
+    assert data["version"] == settings.version
     assert data["app_name"] == "nexus-lab-ryan-vo"
     assert data["database"] in ("ok", "failed")
 
@@ -40,7 +43,8 @@ async def test_root_endpoint(client):
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "nexus-lab-ryan-vo"
-    assert data["version"] == "1.0.0"
+    settings = get_settings()
+    assert data["version"] == settings.version
 
 
 @pytest.mark.asyncio

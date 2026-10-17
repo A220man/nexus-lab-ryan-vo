@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
+
+import structlog
+from app.api.health import router as health_router
+from app.api.observations import router as observations_router
+from app.api.sessions import router as sessions_router
+from app.core.config import get_settings
+from app.core.database import close_db, init_db
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import get_settings
-from app.core.database import init_db, close_db
-from app.api import health
-import structlog
 
 structlog.configure(
     processors=[
@@ -55,7 +58,9 @@ def create_app() -> FastAPI:
     )
 
     # Routes
-    app.include_router(health.router, prefix="/api")
+    app.include_router(health_router, prefix="/api")
+    app.include_router(sessions_router, prefix="/api")
+    app.include_router(observations_router, prefix="/api")
 
     @app.get("/")
     async def root():
@@ -73,6 +78,7 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,

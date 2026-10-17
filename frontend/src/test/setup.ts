@@ -2,7 +2,7 @@ import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
 // Mock fetch globally
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn() as unknown as typeof fetch
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
