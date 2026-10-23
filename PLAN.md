@@ -4,7 +4,7 @@ Each round completes one feature or repair. Future items are planned, not implem
 
 ## Current round
 
-core-skeleton
+auth-oidc
 
 ## Roadmap
 
@@ -25,15 +25,16 @@ Tests: `backend/tests/test_health.py`, `frontend/src/App.test.tsx`
 
 ### sqlite-storage — SQLite Persistent Storage with Session/Observation Models
 
-Status: in_progress
+Status: done
 
 Acceptance:
 - SQLAlchemy models for sessions, observations, summaries
-- Database initialized on startup via create_all
+- Database initialized on startup via Alembic migrations with create_all fallback
 - CRUD endpoints for sessions and observations
 - Tests cover persistence, querying, cascade deletes, and deduplication
+- File-based SQLite persistence verified across restarts
 
-Implementation: `backend/app/models/session.py`, `backend/app/models/__init__.py`, `backend/app/services/session_service.py`, `backend/app/services/observation_service.py`, `backend/app/services/__init__.py`, `backend/app/api/sessions.py`, `backend/app/api/observations.py`, `backend/app/api/__init__.py`, `backend/app/core/database.py`
+Implementation: `backend/app/models/session.py`, `backend/app/models/__init__.py`, `backend/app/services/session_service.py`, `backend/app/services/observation_service.py`, `backend/app/services/__init__.py`, `backend/app/api/sessions.py`, `backend/app/api/observations.py`, `backend/app/api/__init__.py`, `backend/app/core/database.py`, `backend/alembic/env.py`, `backend/alembic/versions/e7d022b5483d_initial_migration.py`, `alembic.ini`
 
 Tests: `backend/tests/test_sessions.py`, `backend/tests/conftest.py`
 

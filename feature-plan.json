@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_feature": "core-skeleton",
+  "current_feature": "auth-oidc",
   "features": [
     {
       "id": "core-skeleton",
@@ -41,12 +41,13 @@
     {
       "id": "sqlite-storage",
       "title": "SQLite Persistent Storage with Session/Observation Models",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": [
         "SQLAlchemy models for sessions, observations, summaries",
-        "Database initialized on startup via create_all",
+        "Database initialized on startup via Alembic migrations with create_all fallback",
         "CRUD endpoints for sessions and observations",
-        "Tests cover persistence, querying, cascade deletes, and deduplication"
+        "Tests cover persistence, querying, cascade deletes, and deduplication",
+        "File-based SQLite persistence verified across restarts"
       ],
       "implementation": [
         "backend/app/models/session.py",
@@ -57,7 +58,10 @@
         "backend/app/api/sessions.py",
         "backend/app/api/observations.py",
         "backend/app/api/__init__.py",
-        "backend/app/core/database.py"
+        "backend/app/core/database.py",
+        "backend/alembic/env.py",
+        "backend/alembic/versions/e7d022b5483d_initial_migration.py",
+        "alembic.ini"
       ],
       "tests": [
         "backend/tests/test_sessions.py",

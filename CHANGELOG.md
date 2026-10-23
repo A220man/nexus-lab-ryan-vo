@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0 — work-in-progress checkpoint
+
+Partial code published for continued development. Known issues: STATUS.md.
+
 ## [1.1.0] - 2026-10-17
 
 All notable changes to this project will be documented in this file.
@@ -17,11 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Observation search across projects by keyword and type
 - Session filtering by project, status, and platform source
 - 17 backend tests covering all persistence workflows and cascade deletes
+- **Alembic migration system initialized with initial schema migration**
+- **Database initialization runs Alembic migrations with create_all fallback**
+- **File-based SQLite persistence verified across application restarts**
 
 ### Fixed
 - Backend version test: derive version from settings instead of hardcoding, preventing future drift
 - Frontend `package-lock.json` version aligned with `VERSION` and `pyproject.toml`
-
 ## [1.0.0] - 2026-10-14
 
 ### Added

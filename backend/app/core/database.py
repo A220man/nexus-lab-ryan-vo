@@ -52,6 +52,7 @@ async_session_factory = async_sessionmaker(
     autoflush=False,
 )
 
+
 async def get_session() -> AsyncSession:
     async with async_session_factory() as session:
         try:
@@ -66,13 +67,29 @@ async def get_session() -> AsyncSession:
 
 async def init_db() -> None:
     """Initialize database - run migrations or create tables."""
+    import os
+    from alembic import command
+    from alembic.config import Config
+
     # Import models so they register with Base.metadata
     from app.models import session as _models  # noqa: F401
     from app.models.base import Base
+    # Get the alembic config (relative to this file: backend/app/core/ -> project root/alembic.ini)
+    import pathlib
+    base_dir = pathlib.Path(__file__).resolve().parent.parent.parent.parent
+    alembic_cfg = Config(str(base_dir / 'alembic.ini'))
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("database_initialized", url=settings.database_url)
+    # Run migrations
+    try:
+        command.upgrade(alembic_cfg, "head")
+        logger.info("database_migrations_applied", url=settings.database_url)
+    except Exception as e:
+        logger.warning("migration_failed_fallback_create_all", error=str(e))
+        # Fallback to create_all for development
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_initialized_fallback", url=settings.database_url)
 
 
 async def close_db() -> None:
