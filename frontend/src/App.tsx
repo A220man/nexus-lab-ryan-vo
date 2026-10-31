@@ -14,6 +14,9 @@ import {
 } from './api'
 import { SessionList } from './components/SessionList'
 import { ObservationView } from './components/ObservationView'
+import { Login } from './components/Login'
+import { UserMenu } from './components/UserMenu'
+import { authService, User } from './auth'
 
 interface HealthResponse {
   status: string
@@ -35,6 +38,28 @@ export function App() {
 
   const [observations, setObservations] = useState<ObservationItem[]>([])
   const [observationsLoading, setObservationsLoading] = useState(false)
+
+  const [user, setUser] = useState<User | null>(null)
+  const [authInitialized, setAuthInitialized] = useState(false)
+
+  // Initialize auth
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        await authService.init()
+        if (authService.isAuthenticated()) {
+          const userInfo = await authService.fetchUserInfo()
+          setUser(userInfo)
+        }
+      } catch (err) {
+        console.error('Auth initialization failed', err)
+      } finally {
+        setAuthInitialized(true)
+      }
+    }
+
+    initAuth()
+  }, [])
 
   // Fetch health
   useEffect(() => {
@@ -58,10 +83,12 @@ export function App() {
     return () => clearInterval(interval)
   }, [])
 
-  // Load sessions on mount
+  // Load sessions on mount and when auth changes
   useEffect(() => {
-    loadSessions()
-  }, [])
+    if (authInitialized && authService.isAuthenticated()) {
+      loadSessions()
+    }
+  }, [authInitialized])
 
   const loadSessions = async () => {
     setSessionsLoading(true)
@@ -146,6 +173,18 @@ export function App() {
     }
   }
 
+  const handleLogout = async () => {
+    await authService.logout()
+    setUser(null)
+    setSessions([])
+    setSelectedSession(null)
+    setObservations([])
+    // In demo mode, reload to show login
+    if (authService.getConfig()?.demo_mode) {
+      window.location.reload()
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ok':
@@ -160,11 +199,36 @@ export function App() {
     }
   }
 
+  // Show login if not authenticated
+  if (!authInitialized) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <h1>nexus-lab-ryan-vo</h1>
+          <p className="subtitle">Persistent Context Across Sessions for Every Agent</p>
+        </header>
+        <main className="app-main">
+          <div className="login-container">
+            <div className="login-card">
+              <div className="login-spinner" />
+              <p>Initializing...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!authService.isAuthenticated()) {
+    return <Login />
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>nexus-lab-ryan-vo</h1>
         <p className="subtitle">Persistent Context Across Sessions for Every Agent</p>
+        {user && <UserMenu user={user} onLogout={handleLogout} />}
       </header>
 
       <main className="app-main">

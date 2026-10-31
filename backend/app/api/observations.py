@@ -1,4 +1,5 @@
 from app.core.database import get_session
+from app.core.security import get_current_user, require_role, TokenData
 from app.models.session import Observation, ObservationType
 from app.services.observation_service import (
     ObservationCreate,
@@ -15,6 +16,7 @@ async def create_observation(
     session_id: str,
     data: ObservationCreate,
     db: AsyncSession = Depends(get_session),
+    current_user: TokenData = Depends(get_current_user),
 ):
     import uuid
 
@@ -32,10 +34,11 @@ async def create_observation(
 @router.get("/sessions/{session_id}/observations", response_model=list[dict])
 async def list_observations(
     session_id: str,
-    obs_type: ObservationType | None = Query(default=None),
+    type: ObservationType | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_session),
+    current_user: TokenData = Depends(get_current_user),
 ):
     import uuid
 
@@ -45,39 +48,28 @@ async def list_observations(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session ID"
         )
-    from app.services.session_service import SessionService
-    await SessionService.get_or_404(db, sid)
-    observations = await ObservationService.list(db, sid, obs_type=obs_type, limit=limit, offset=offset)
+    observations = await ObservationService.list(db, sid, type=type, limit=limit, offset=offset)
     return [ObservationService._obs_to_read(o).model_dump() for o in observations]
 
 
 @router.get("/observations/search", response_model=list[dict])
 async def search_observations(
     project: str | None = Query(default=None, max_length=255),
-    q: str | None = Query(default=None, max_length=200),
-    obs_type: ObservationType | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=500),
+    type: ObservationType | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_session),
+    current_user: TokenData = Depends(get_current_user),
 ):
     """Search observations by project, title keyword, or type."""
-    from sqlalchemy import func, select
-
-    import uuid
-
-    stmt = (
-        select(Observation)
-        .join(Session, Observation.session_id == Session.id)
-        .where(Observation.session_id == Session.id)
+    if not q and not project:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Query or project required"
+        )
+    observations = await ObservationService.search(
+        db, query=q, project=project, type=type, limit=limit, offset=offset
     )
-    if project:
-        stmt = stmt.where(Session.project == project)
-    if q:
-        stmt = stmt.where(func.lower(Observation.title).like(f"%{q.lower()}%"))
-    if obs_type:
-        stmt = stmt.where(Observation.type == obs_type)
-    stmt = stmt.order_by(Observation.created_at.desc()).limit(limit)
-    result = await db.execute(stmt)
-    observations = result.scalars().all()
     return [ObservationService._obs_to_read(o).model_dump() for o in observations]
 
 
@@ -85,6 +77,7 @@ async def search_observations(
 async def get_observation(
     observation_id: str,
     db: AsyncSession = Depends(get_session),
+    current_user: TokenData = Depends(get_current_user),
 ):
     import uuid
 
@@ -100,9 +93,10 @@ async def get_observation(
 
 @router.post("/observations/bulk-import", response_model=list[dict], status_code=status.HTTP_201_CREATED)
 async def bulk_import_observations(
-    session_id: str = Query(...),
-    observations: list[ObservationCreate] = ...,
+    session_id: str,
+    items: list[ObservationCreate],
     db: AsyncSession = Depends(get_session),
+    current_user: TokenData = Depends(require_role("operator")),
 ):
     import uuid
 
@@ -112,7 +106,7 @@ async def bulk_import_observations(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session ID"
         )
-    created = await ObservationService.bulk_create(db, sid, observations)
+    created = await ObservationService.bulk_create(db, sid, items)
     return [ObservationService._obs_to_read(o).model_dump() for o in created]
 
 
@@ -120,6 +114,7 @@ async def bulk_import_observations(
 async def delete_observation(
     observation_id: str,
     db: AsyncSession = Depends(get_session),
+    current_user: TokenData = Depends(require_role("operator")),
 ):
     import uuid
 

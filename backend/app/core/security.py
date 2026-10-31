@@ -83,3 +83,47 @@ class Role:
         user_level = max((cls.hierarchy().get(r, 0) for r in user_roles), default=0)
         required_level = cls.hierarchy().get(required, 0)
         return user_level >= required_level
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+security = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData:
+    """Get current authenticated user from access token."""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token_data = verify_token(credentials.credentials)
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token_data
+
+
+async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData | None:
+    """Get current user if authenticated, otherwise None."""
+    if not credentials:
+        return None
+    return verify_token(credentials.credentials)
+
+
+def require_role(required_role: str):
+    """Dependency factory for role-based access control."""
+
+    async def role_checker(user: TokenData = Depends(get_current_user)) -> TokenData:
+        if not Role.has_permission(user.roles, required_role):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions. Required: {required_role}",
+            )
+        return user
+
+    return role_checker

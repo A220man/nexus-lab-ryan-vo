@@ -71,14 +71,28 @@
     {
       "id": "auth-oidc",
       "title": "OIDC Authentication with Keycloak",
-      "status": "planned",
+      "status": "in_progress",
       "acceptance": [
         "Keycloak integration in docker compose",
         "Login/logout flow with PKCE",
         "Protected API endpoints with role-based access",
         "Demo mode for local development"
       ],
-      "implementation": [],
+      "implementation": [
+        "backend/app/core/oidc.py",
+        "backend/app/api/auth.py",
+        "backend/app/core/security.py",
+        "backend/app/api/sessions.py",
+        "backend/app/api/observations.py",
+        "backend/app/main.py",
+        "backend/app/api/__init__.py",
+        "frontend/src/auth.ts",
+        "frontend/src/api.ts",
+        "frontend/src/components/Login.tsx",
+        "frontend/src/components/UserMenu.tsx",
+        "frontend/src/App.tsx",
+        "frontend/src/App.css"
+      ],
       "tests": []
     },
     {

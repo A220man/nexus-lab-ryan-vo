@@ -1,4 +1,5 @@
 from app.core.database import get_session as get_db
+from app.core.security import get_current_user, require_role, TokenData
 from app.models.session import Session, SessionStatus
 from app.services.session_service import (
     SessionCreate,
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 async def create_session(
     data: SessionCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
 ):
     session = await SessionService.create(db, data)
     return SessionService._session_to_read(session)
@@ -29,6 +31,7 @@ async def list_sessions(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
 ):
     sessions = await SessionService.list(
         db,
@@ -45,6 +48,7 @@ async def list_sessions(
 async def get_session(
     session_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
 ):
     import uuid
 
@@ -63,6 +67,7 @@ async def update_session(
     session_id: str,
     data: SessionUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
 ):
     import uuid
 
@@ -80,6 +85,7 @@ async def update_session(
 async def delete_session(
     session_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_role("operator")),
 ):
     import uuid
 
