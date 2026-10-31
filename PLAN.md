@@ -40,13 +40,15 @@ Tests: `backend/tests/test_sessions.py`, `backend/tests/conftest.py`
 
 ### auth-oidc — OIDC Authentication with Keycloak
 
-Status: planned
+Status: in_progress
 
 Acceptance:
 - Keycloak integration in docker compose
 - Login/logout flow with PKCE
 - Protected API endpoints with role-based access
 - Demo mode for local development
+
+Implementation: `backend/app/core/oidc.py`, `backend/app/api/auth.py`, `backend/app/core/security.py`, `backend/app/api/sessions.py`, `backend/app/api/observations.py`, `backend/app/main.py`, `backend/app/api/__init__.py`, `frontend/src/auth.ts`, `frontend/src/api.ts`, `frontend/src/components/Login.tsx`, `frontend/src/components/UserMenu.tsx`, `frontend/src/App.tsx`, `frontend/src/App.css`
 
 ### observer-pipeline — Observer Response Pipeline with Classification
 

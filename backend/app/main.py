@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 import structlog
+from app.api.auth import router as auth_router
 from app.api.health import router as health_router
 from app.api.observations import router as observations_router
 from app.api.sessions import router as sessions_router
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     )
 
     # Routes
+    app.include_router(auth_router, prefix="/api")
     app.include_router(health_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(observations_router, prefix="/api")
