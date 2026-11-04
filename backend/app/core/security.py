@@ -24,6 +24,18 @@ class TokenData(BaseModel):
     iat: int
     jti: str
 
+def create_demo_user() -> TokenData:
+    """Create a demo user for local development."""
+    now = datetime.now(UTC)
+    return TokenData(
+        sub="demo-user",
+        email="demo@nexus-lab.local",
+        name="Demo User",
+        roles=[Role.VIEWER, Role.OPERATOR],
+        exp=int((now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
+        iat=int(now.timestamp()),
+        jti=f"demo:{int(now.timestamp() * 1000)}",
+    )
 
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
@@ -92,6 +104,12 @@ security = HTTPBearer(auto_error=False)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData:
     """Get current authenticated user from access token."""
+    settings = get_settings()
+    
+    # Demo mode: return a demo user without requiring authentication
+    if settings.demo_mode:
+        return create_demo_user()
+    
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -110,10 +128,15 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData | None:
     """Get current user if authenticated, otherwise None."""
+    settings = get_settings()
+    
+    # Demo mode: return a demo user
+    if settings.demo_mode:
+        return create_demo_user()
+    
     if not credentials:
         return None
     return verify_token(credentials.credentials)
-
 
 def require_role(required_role: str):
     """Dependency factory for role-based access control."""

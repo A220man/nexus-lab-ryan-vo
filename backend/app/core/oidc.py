@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 import httpx
 import structlog
 from app.core.config import get_settings
-from app.core.security import Role, TokenData, create_access_token, create_refresh_token, decode_token
+from app.core.security import Role, TokenData, create_access_token, create_refresh_token, decode_token, create_demo_user
 from jose import JWTError, jwk, jwt
 from jose.utils import base64url_decode
 from pydantic import BaseModel
@@ -364,20 +364,6 @@ async def authenticate_user(code: str, state: str) -> tuple[TokenData, str, str]
     )
 
     return token_data, access_token, refresh_token
-
-
-def create_demo_user() -> TokenData:
-    """Create a demo user for local development."""
-    now = datetime.now(UTC)
-    return TokenData(
-        sub="demo-user",
-        email="demo@nexus-lab.local",
-        name="Demo User",
-        roles=[Role.VIEWER, Role.OPERATOR],
-        exp=int((now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
-        iat=int(now.timestamp()),
-        jti=f"demo:{int(now.timestamp() * 1000)}",
-    )
 
 
 def create_demo_tokens() -> tuple[str, str]:

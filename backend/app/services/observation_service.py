@@ -157,6 +157,27 @@ class ObservationService:
             obs = await ObservationService.create(db, session_id, obs_data)
             created.append(obs)
         return created
+    @staticmethod
+    async def search(
+        db: AsyncSession,
+        query: str | None = None,
+        project: str | None = None,
+        type: ObservationType | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Observation]:
+        from app.models.session import Session
+
+        stmt = select(Observation)
+        if project:
+            stmt = stmt.join(Session).where(Session.project == project)
+        if query:
+            stmt = stmt.where(Observation.title.ilike(f"%{query}%"))
+        if type:
+            stmt = stmt.where(Observation.type == type)
+        stmt = stmt.order_by(Observation.created_at.desc()).limit(limit).offset(offset)
+        result = await db.execute(stmt)
+        return result.scalars().all()
 
     @staticmethod
     def _obs_to_read(obs: Observation) -> ObservationRead:
