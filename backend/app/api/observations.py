@@ -48,7 +48,7 @@ async def list_observations(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session ID"
         )
-    observations = await ObservationService.list(db, sid, type=type, limit=limit, offset=offset)
+    observations = await ObservationService.list(db, sid, obs_type=type, limit=limit, offset=offset)
     return [ObservationService._obs_to_read(o).model_dump() for o in observations]
 
 

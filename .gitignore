@@ -67,3 +67,12 @@ frontend/coverage/
 *.tmp
 *.temp
 tmp/
+.turbo/
+**/data/media/
+__pycache__/
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm

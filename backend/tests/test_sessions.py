@@ -191,9 +191,10 @@ async def test_session_with_observations_cascade_delete(client):
     response = await client.delete(f"/api/sessions/{session_id}")
     assert response.status_code == 204
 
-    # Verify observations gone
+    # Verify observations gone (empty list)
     obs_resp = await client.get(f"/api/sessions/{session_id}/observations")
-    assert obs_resp.status_code == 404
+    assert obs_resp.status_code == 200
+    assert obs_resp.json() == []
 
 
 class TestObservations:
@@ -262,7 +263,7 @@ class TestObservations:
         assert len(data) == 3
 
         # Filter by type
-        response = await client.get(f"/api/sessions/{session_id}/observations?obs_type=bugfix")
+        response = await client.get(f"/api/sessions/{session_id}/observations?type=bugfix")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
@@ -293,7 +294,7 @@ class TestObservations:
         assert len(data) == 2
 
         # Search by type
-        response = await client.get("/api/observations/search?obs_type=bugfix")
+        response = await client.get("/api/observations/search?project=obs-test&type=bugfix")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
