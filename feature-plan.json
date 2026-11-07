@@ -93,7 +93,10 @@
         "frontend/src/App.tsx",
         "frontend/src/App.css"
       ],
-      "tests": []
+      "tests": [
+        "frontend/src/test/setup.ts",
+        "frontend/src/App.test.tsx"
+      ]
     },
     {
       "id": "observer-pipeline",

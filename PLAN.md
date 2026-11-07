@@ -50,6 +50,8 @@ Acceptance:
 
 Implementation: `backend/app/core/oidc.py`, `backend/app/api/auth.py`, `backend/app/core/security.py`, `backend/app/api/sessions.py`, `backend/app/api/observations.py`, `backend/app/main.py`, `backend/app/api/__init__.py`, `frontend/src/auth.ts`, `frontend/src/api.ts`, `frontend/src/components/Login.tsx`, `frontend/src/components/UserMenu.tsx`, `frontend/src/App.tsx`, `frontend/src/App.css`
 
+Tests: `frontend/src/test/setup.ts`, `frontend/src/App.test.tsx`
+
 ### observer-pipeline — Observer Response Pipeline with Classification
 
 Status: planned

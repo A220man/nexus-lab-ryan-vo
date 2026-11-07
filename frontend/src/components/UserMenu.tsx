@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { authService } from '../auth'
 
 interface UserMenuProps {
   user: {
