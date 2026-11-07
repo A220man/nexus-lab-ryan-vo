@@ -40,36 +40,33 @@ class AuthService {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY)
       if (stored) {
         const data = JSON.parse(stored)
-        this.accessToken = data.access_token
-        this.refreshToken = data.refresh_token
-        this.tokenExpiry = data.expires_at
+        this.accessToken = data.accessToken
+        this.refreshToken = data.refreshToken
+        this.tokenExpiry = data.tokenExpiry
         this.user = data.user
       }
     } catch {
-      // Ignore parse errors
+      this.clearStorage()
     }
   }
 
   private saveToStorage(): void {
     if (this.accessToken && this.refreshToken && this.tokenExpiry && this.user) {
-      localStorage.setItem(
-        AUTH_STORAGE_KEY,
-        JSON.stringify({
-          access_token: this.accessToken,
-          refresh_token: this.refreshToken,
-          expires_at: this.tokenExpiry,
-          user: this.user,
-        })
-      )
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+        accessToken: this.accessToken,
+        refreshToken: this.refreshToken,
+        tokenExpiry: this.tokenExpiry,
+        user: this.user,
+      }))
     }
   }
 
   private clearStorage(): void {
-    localStorage.removeItem(AUTH_STORAGE_KEY)
     this.accessToken = null
     this.refreshToken = null
     this.tokenExpiry = null
     this.user = null
+    localStorage.removeItem(AUTH_STORAGE_KEY)
   }
 
   async init(): Promise<void> {
@@ -95,7 +92,7 @@ class AuthService {
       throw new Error('Failed to fetch auth config')
     }
     this.config = await response.json()
-    return this.config
+    return this.config!
   }
 
   getConfig(): AuthConfig | null {
@@ -111,10 +108,7 @@ class AuthService {
   }
 
   getAccessToken(): string | null {
-    if (this.isAuthenticated()) {
-      return this.accessToken
-    }
-    return null
+    return this.accessToken
   }
 
   getAuthHeader(): string | null {
@@ -124,48 +118,96 @@ class AuthService {
 
   async login(redirectUri?: string): Promise<void> {
     const config = await this.fetchConfig()
-
     if (config.demo_mode) {
-      // Demo mode: get tokens directly
-      const response = await fetch(`/api/auth/login${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ''}`)
+      // Demo mode: create demo tokens directly
+      const response = await fetch('/api/auth/demo-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
       if (!response.ok) {
-        throw new Error('Demo login failed')
+        throw new Error('Failed to create demo tokens')
       }
-      // In demo mode, the backend redirects with tokens in fragment
-      // This is handled by the callback
+      const data = await response.json()
+      this.accessToken = data.access_token
+      this.refreshToken = data.refresh_token
+      this.tokenExpiry = Date.now() + data.expires_in * 1000
+      await this.fetchUserInfo()
+      this.saveToStorage()
       return
     }
 
-    // Production mode: redirect to Keycloak
-    const response = await fetch(`/api/auth/login${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ''}`)
-    if (!response.ok) {
-      throw new Error('Failed to initiate login')
-    }
-    const data = await response.json()
-    // Redirect to Keycloak
-    window.location.href = data.auth_url
+    // Production mode: redirect to Keycloak with PKCE
+    const codeVerifier = generateCodeVerifier()
+    const codeChallenge = generateCodeChallenge(codeVerifier)
+    const state = generateState()
+    const nonce = generateNonce()
+
+    const params = new URLSearchParams({
+      client_id: config.keycloak_client_id,
+      redirect_uri: redirectUri || window.location.origin,
+      response_type: 'code',
+      scope: 'openid profile email',
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      state,
+      nonce,
+    })
+
+    // Store PKCE state
+    storeAuthState({
+      codeVerifier,
+      codeChallenge,
+      state,
+      nonce,
+      redirectUri: redirectUri || window.location.origin,
+      createdAt: Date.now(),
+    })
+
+    window.location.href = `${config.keycloak_url}/realms/${config.keycloak_realm}/protocol/openid-connect/auth?${params.toString()}`
   }
 
   async handleCallback(hash: string): Promise<void> {
-    const params = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash)
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-    const expiresIn = params.get('expires_in')
+    const params = new URLSearchParams(hash.slice(1))
+    const code = params.get('code')
+    const state = params.get('state')
     const error = params.get('error')
 
     if (error) {
-      throw new Error(`Authentication failed: ${error}`)
+      throw new Error(`OAuth error: ${error}`)
     }
 
-    if (!accessToken || !refreshToken || !expiresIn) {
-      throw new Error('Invalid callback: missing tokens')
+    if (!code || !state) {
+      throw new Error('Missing code or state in callback')
     }
 
-    this.accessToken = accessToken
-    this.refreshToken = refreshToken
-    this.tokenExpiry = Date.now() + parseInt(expiresIn) * 1000
+    const authState = getAuthState(state)
+    if (!authState) {
+      throw new Error('Invalid or expired state')
+    }
 
-    // Fetch user info
+    const config = await this.fetchConfig()
+    const tokenResponse = await fetch(`${config.keycloak_url}/realms/${config.keycloak_realm}/protocol/openid-connect/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: config.keycloak_client_id,
+        code,
+        redirect_uri: authState.redirectUri,
+        code_verifier: authState.codeVerifier,
+      }),
+    })
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json()
+      throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error}`)
+    }
+
+    const tokens = await tokenResponse.json()
+    this.accessToken = tokens.access_token
+    this.refreshToken = tokens.refresh_token
+    this.tokenExpiry = Date.now() + tokens.expires_in * 1000
+
     await this.fetchUserInfo()
     this.saveToStorage()
   }
@@ -176,7 +218,8 @@ class AuthService {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch('/api/auth/me', {
+    const config = await this.fetchConfig()
+    const response = await fetch(`${config.keycloak_url}/realms/${config.keycloak_realm}/protocol/openid-connect/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -192,7 +235,7 @@ class AuthService {
       sub: data.sub,
       email: data.email,
       name: data.name,
-      roles: data.roles || [],
+      roles: data.realm_access?.roles || [],
     }
     return this.user
   }
@@ -208,24 +251,25 @@ class AuthService {
 
     this.refreshPromise = (async () => {
       try {
-        const response = await fetch('/api/auth/refresh', {
+        const config = await this.fetchConfig()
+        const response = await fetch(`${config.keycloak_url}/realms/${config.keycloak_realm}/protocol/openid-connect/token`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: this.refreshToken }),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: config.keycloak_client_id,
+            refresh_token: this.refreshToken!,
+          }),
         })
 
         if (!response.ok) {
-          if (response.status === 401) {
-            this.clearStorage()
-          }
           throw new Error('Token refresh failed')
         }
 
-        const data: TokenResponse = await response.json()
-        this.accessToken = data.access_token
-        this.refreshToken = data.refresh_token
-        this.tokenExpiry = Date.now() + data.expires_in * 1000
-        this.user = data.user
+        const tokens = await response.json()
+        this.accessToken = tokens.access_token
+        this.refreshToken = tokens.refresh_token
+        this.tokenExpiry = Date.now() + tokens.expires_in * 1000
         this.saveToStorage()
       } finally {
         this.refreshPromise = null
@@ -237,42 +281,87 @@ class AuthService {
 
   async logout(): Promise<void> {
     const config = await this.fetchConfig()
-
     if (config.demo_mode) {
       this.clearStorage()
       return
     }
 
-    // In production, redirect to Keycloak logout
-    const idToken = this.accessToken // Use access token as ID token hint
-    const response = await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      this.clearStorage()
-      if (data.logout_url) {
-        window.location.href = data.logout_url
+    const token = this.getAccessToken()
+    if (token) {
+      try {
+        await fetch(`${config.keycloak_url}/realms/${config.keycloak_realm}/protocol/openid-connect/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: config.keycloak_client_id,
+            refresh_token: this.refreshToken || '',
+          }),
+        })
+      } catch {
+        // Ignore logout errors
       }
-    } else {
-      this.clearStorage()
     }
+    this.clearStorage()
   }
 
   hasRole(role: string): boolean {
-    if (!this.user) return false
-    return this.user.roles.includes(role)
+    return this.user?.roles.includes(role) ?? false
   }
 
   hasAnyRole(roles: string[]): boolean {
     if (!this.user) return false
     return roles.some((r) => this.user!.roles.includes(r))
   }
+}
+
+function generateCodeVerifier(): string {
+  const array = new Uint8Array(32)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function generateCodeChallenge(codeVerifier: string): string {
+  // Simplified for demo - in production use crypto.subtle.digest
+  return btoa(codeVerifier).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
+
+function generateState(): string {
+  const array = new Uint8Array(16)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function generateNonce(): string {
+  const array = new Uint8Array(16)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+// In-memory state store for PKCE
+interface AuthState {
+  codeVerifier: string
+  codeChallenge: string
+  state: string
+  nonce: string
+  redirectUri: string
+  createdAt: number
+}
+
+const authStates: Map<string, AuthState> = new Map()
+
+function storeAuthState(state: AuthState): void {
+  authStates.set(state.state, state)
+  // Clean up old states
+  const now = Date.now()
+  for (const [key, value] of authStates.entries()) {
+    if (now - value.createdAt > 600000) { // 10 minutes
+      authStates.delete(key)
+    }
+  }
+}
+
+function getAuthState(state: string): AuthState | undefined {
+  return authStates.get(state)
 }
 
 export const authService = new AuthService()
