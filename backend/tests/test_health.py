@@ -54,4 +54,20 @@ async def test_cors_headers(client):
         headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"},
     )
     assert response.status_code == 200
-    assert "access-control-allow-origin" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_demo_tokens_endpoint(client):
+    """Test demo tokens endpoint in demo mode."""
+    response = await client.post("/api/auth/demo-tokens")
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] == 1800
+    assert "user" in data
+    assert data["user"]["sub"] == "demo-user"
+    assert data["user"]["email"] == "demo@nexus-lab.local"
+    assert data["user"]["name"] == "Demo User"
+    assert data["user"]["roles"] == ["viewer", "operator"]

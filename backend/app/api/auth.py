@@ -10,7 +10,7 @@ from app.core.oidc import (
     create_demo_tokens,
     create_demo_user,
 )
-from app.core.security import TokenData, verify_token
+from app.core.security import TokenData, verify_token, create_access_token, create_refresh_token
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -114,6 +114,33 @@ async def callback(code: str | None = None, state: str | None = None, error: str
     fragment = f"access_token={access_token}&refresh_token={refresh_token}&token_type=bearer&expires_in=1800"
     return RedirectResponse(url=f"{settings.frontend_url}/#/callback?{fragment}")
 
+@router.post("/demo-tokens")
+async def demo_tokens():
+    """
+    Create demo tokens for local development.
+    Only available in demo mode.
+    """
+    if not settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo tokens only available in demo mode",
+        )
+
+    access_token, refresh_token = create_demo_tokens()
+    user = create_demo_user()
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": 1800,
+        "user": {
+            "sub": user.sub,
+            "email": user.email,
+            "name": user.name,
+            "roles": user.roles,
+        },
+    }
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(request: RefreshRequest):
