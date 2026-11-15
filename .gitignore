@@ -76,3 +76,4 @@ __pycache__/
 *.sqlite-shm
 *.sqlite3-wal
 *.sqlite3-shm
+.venv*/
