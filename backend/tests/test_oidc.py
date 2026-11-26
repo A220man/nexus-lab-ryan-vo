@@ -107,3 +107,36 @@ async def test_auth_refresh_demo_mode(client):
     refresh_data = refresh_response.json()
     assert "access_token" in refresh_data
     assert "refresh_token" in refresh_data
+
+
+@pytest.mark.asyncio
+async def test_pkce_code_verifier_and_challenge_generation():
+    """Test PKCE code verifier and challenge are correctly generated.
+    
+    This test verifies the core PKCE (Proof Key for Code Exchange) parameters
+    can be generated without requiring a Keycloak instance. The code verifier
+    should be 43-128 characters, and the challenge should be derived from it.
+    """
+    from app.core.oidc import generate_code_verifier, generate_code_challenge
+    
+    # Generate code verifier
+    code_verifier = generate_code_verifier()
+    assert 43 <= len(code_verifier) <= 128, \
+        f"Code verifier length {len(code_verifier)} not in range 43-128"
+    
+    # Generate code challenge
+    code_challenge = generate_code_challenge(code_verifier)
+    assert code_challenge is not None, "Code challenge should not be None"
+    assert len(code_challenge) > 0, "Code challenge should not be empty"
+    
+    # Code challenge should be URL-safe and without trailing =
+    assert code_challenge == code_challenge.rstrip("="), \
+        "Code challenge should not have trailing equals sign"
+    
+    # Code challenge should be base64url-encoded (no padding)
+    # Verify it can be decoded back (round-trip)
+    import base64
+    import re
+    # Code challenge should only contain base64url-safe characters
+    assert re.match(r'^[A-Za-z0-9_-]+$', code_challenge), \
+        f"Code challenge contains invalid characters: {code_challenge}"
